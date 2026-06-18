@@ -1,0 +1,447 @@
+/**
+ * app.js — المنطق الرئيسي للتطبيق
+ * Google Maps API + إدارة البلاغات
+ */
+
+/* ═══════════════════════════════════════
+   الحالة العامة
+═══════════════════════════════════════ */
+let map = null;
+let markers = {};          // { id: google.maps.marker.AdvancedMarkerElement }
+let miniMap = null;        // خريطة صغيرة في نافذة الإبلاغ
+let miniMarker = null;
+let currentLat = null;
+let currentLng = null;
+let currentAddress = '';
+let photoData = null;      // base64
+
+/* ═══════════════════════════════════════
+   تهيئة Google Maps
+═══════════════════════════════════════ */
+async function initMap() {
+  // إخفاء شاشة البداية
+  setTimeout(() => {
+    document.getElementById('splash').style.opacity = '0';
+    setTimeout(() => {
+      document.getElementById('splash').style.display = 'none';
+      document.getElementById('app').classList.remove('hidden');
+    }, 500);
+  }, 1200);
+
+  // المركز الافتراضي: الرياض
+  const defaultCenter = { lat: 24.7136, lng: 46.6753 };
+
+  // استيراد المكتبات الحديثة
+  const { Map } = await google.maps.importLibrary('maps');
+  const { AdvancedMarkerElement } = await google.maps.importLibrary('marker');
+
+  map = new Map(document.getElementById('map'), {
+    center: defaultCenter,
+    zoom: 13,
+    mapId: 'DEMO_MAP_ID',          // استبدل بـ Map ID خاص بك للـ Advanced Markers
+    disableDefaultUI: false,
+    zoomControl: true,
+    mapTypeControl: false,
+    streetViewControl: false,
+    fullscreenControl: true,
+    clickableIcons: false,
+    gestureHandling: 'greedy',
+  });
+
+  // عرض جميع البلاغات على الخريطة
+  renderMapMarkers();
+  updateStats();
+}
+
+/* ═══════════════════════════════════════
+   الماركرز على الخريطة
+═══════════════════════════════════════ */
+async function renderMapMarkers() {
+  if (!map) return;
+
+  const { AdvancedMarkerElement } = await google.maps.importLibrary('marker');
+  const { InfoWindow } = await google.maps.importLibrary('maps');
+
+  // مسح الماركرز القديمة
+  Object.values(markers).forEach(m => m.map = null);
+  markers = {};
+
+  const infoWindow = new InfoWindow();
+  const reports = DB.getAll().filter(r => r.status !== 'rejected');
+
+  reports.forEach(report => {
+    // أيقونة مخصصة
+    const pin = document.createElement('div');
+    pin.innerHTML = buildPinHTML(report.status);
+    pin.title = report.name;
+
+    const marker = new AdvancedMarkerElement({
+      map,
+      position: { lat: report.lat, lng: report.lng },
+      content: pin,
+      title: report.name,
+    });
+
+    marker.addListener('click', () => {
+      infoWindow.close();
+      infoWindow.setContent(buildInfoWindowHTML(report));
+      infoWindow.open(map, marker);
+    });
+
+    markers[report.id] = marker;
+  });
+}
+
+function buildPinHTML(status) {
+  const color = status === 'approved' ? '#1D9E75' : '#EF9F27';
+  const shadow = status === 'approved' ? 'rgba(29,158,117,.4)' : 'rgba(239,159,39,.4)';
+  return `
+    <div style="
+      width:40px; height:40px; border-radius:50% 50% 50% 0;
+      background:${color}; transform:rotate(-45deg);
+      box-shadow: 0 3px 10px ${shadow};
+      display:flex; align-items:center; justify-content:center;
+      border:2px solid #fff;
+    ">
+      <span style="transform:rotate(45deg); font-size:18px; line-height:1;">♿</span>
+    </div>`;
+}
+
+function buildInfoWindowHTML(report) {
+  const statusLabel = { approved: 'معتمد ✓', pending: 'قيد المراجعة ⏳' }[report.status] || '';
+  const statusColor = report.status === 'approved' ? '#0F6E56' : '#854F0B';
+  const date = new Date(report.createdAt).toLocaleDateString('ar-SA', { year:'numeric', month:'long', day:'numeric' });
+
+  return `
+    <div dir="rtl" style="font-family:'Tajawal',sans-serif; min-width:200px; max-width:260px; padding:4px;">
+      <div style="font-size:15px; font-weight:700; margin-bottom:4px; color:#202124;">${report.name}</div>
+      ${report.address ? `<div style="font-size:12px; color:#5F6368; margin-bottom:6px;">📍 ${report.address}</div>` : ''}
+      ${report.notes ? `<div style="font-size:13px; color:#3C4043; margin-bottom:8px; line-height:1.5;">${report.notes}</div>` : ''}
+      ${report.photo ? `<img src="${report.photo}" style="width:100%;border-radius:6px;margin-bottom:8px;object-fit:cover;max-height:120px;" />` : ''}
+      <div style="font-size:11px; color:${statusColor}; font-weight:700;">${statusLabel}</div>
+      <div style="font-size:11px; color:#9AA0A6; margin-top:2px;">${date}</div>
+    </div>`;
+}
+
+/* ═══════════════════════════════════════
+   إضافة ماركر مؤقت بعد إضافة تقرير
+═══════════════════════════════════════ */
+async function addMarkerToMap(report) {
+  if (!map) return;
+  const { AdvancedMarkerElement } = await google.maps.importLibrary('marker');
+  const pin = document.createElement('div');
+  pin.innerHTML = buildPinHTML(report.status);
+
+  const marker = new AdvancedMarkerElement({
+    map,
+    position: { lat: report.lat, lng: report.lng },
+    content: pin,
+    title: report.name,
+  });
+  markers[report.id] = marker;
+
+  map.panTo({ lat: report.lat, lng: report.lng });
+  map.setZoom(15);
+}
+
+/* ═══════════════════════════════════════
+   تحديث ماركر بعد اعتماد / رفض
+═══════════════════════════════════════ */
+async function updateMarker(report) {
+  if (!map) return;
+  if (markers[report.id]) markers[report.id].map = null;
+
+  if (report.status === 'rejected') {
+    delete markers[report.id];
+    return;
+  }
+
+  const { AdvancedMarkerElement } = await google.maps.importLibrary('marker');
+  const pin = document.createElement('div');
+  pin.innerHTML = buildPinHTML(report.status);
+
+  markers[report.id] = new AdvancedMarkerElement({
+    map,
+    position: { lat: report.lat, lng: report.lng },
+    content: pin,
+    title: report.name,
+  });
+}
+
+/* ═══════════════════════════════════════
+   نافذة الإبلاغ
+═══════════════════════════════════════ */
+function openModal() {
+  resetModal();
+  document.getElementById('modalOverlay').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+function closeModalOutside(e) {
+  if (e.target === document.getElementById('modalOverlay')) closeModal();
+}
+
+function resetModal() {
+  currentLat = null; currentLng = null;
+  currentAddress = ''; photoData = null;
+  document.getElementById('locName').value = '';
+  document.getElementById('locNotes').value = '';
+  document.getElementById('locBtnTitle').textContent = 'تحديد موقعي الحالي';
+  document.getElementById('locBtnSub').textContent = 'اضغط للحصول على الإحداثيات';
+  document.getElementById('locBtnIcon').textContent = '📡';
+  document.getElementById('locMiniMap').classList.add('hidden');
+  document.getElementById('photoPreviewArea').innerHTML = '<span style="font-size:28px">📷</span><span>اضغط لرفع صورة</span>';
+  document.getElementById('photoInput').value = '';
+  miniMap = null; miniMarker = null;
+}
+
+/* ═══════════════════════════════════════
+   تحديد الموقع (GPS + Geocoding)
+═══════════════════════════════════════ */
+async function getLocation() {
+  const titleEl = document.getElementById('locBtnTitle');
+  const subEl   = document.getElementById('locBtnSub');
+  const iconEl  = document.getElementById('locBtnIcon');
+
+  iconEl.textContent = '⏳';
+  titleEl.textContent = 'جارٍ تحديد الموقع...';
+  subEl.textContent = 'يُرجى الانتظار';
+
+  const onSuccess = async (pos) => {
+    currentLat = pos.coords.latitude;
+    currentLng = pos.coords.longitude;
+
+    titleEl.textContent = `${currentLat.toFixed(5)}, ${currentLng.toFixed(5)}`;
+    subEl.textContent = 'تم تحديد الموقع ✓';
+    iconEl.textContent = '✅';
+
+    // عكس الترميز الجغرافي
+    try {
+      const { Geocoder } = await google.maps.importLibrary('geocoding');
+      const geocoder = new Geocoder();
+      const res = await geocoder.geocode({ location: { lat: currentLat, lng: currentLng } });
+      if (res.results[0]) {
+        currentAddress = res.results[0].formatted_address;
+        subEl.textContent = currentAddress;
+        // ملء اسم الموقع تلقائياً إذا كان فارغاً
+        if (!document.getElementById('locName').value) {
+          const comp = res.results[0].address_components.find(c => c.types.includes('point_of_interest') || c.types.includes('establishment'));
+          if (comp) document.getElementById('locName').value = comp.long_name;
+        }
+      }
+    } catch (e) { /* Geocoding اختياري */ }
+
+    renderMiniMap();
+  };
+
+  const onError = () => {
+    // موقع تجريبي عند رفض الإذن
+    currentLat = 24.7136 + (Math.random() - 0.5) * 0.02;
+    currentLng = 46.6753 + (Math.random() - 0.5) * 0.02;
+    iconEl.textContent = '⚠️';
+    titleEl.textContent = `${currentLat.toFixed(5)}, ${currentLng.toFixed(5)}`;
+    subEl.textContent = 'تعذّر الوصول إلى GPS — تم استخدام موقع تقريبي';
+    renderMiniMap();
+  };
+
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(onSuccess, onError, { timeout: 10000 });
+  } else {
+    onError();
+  }
+}
+
+async function renderMiniMap() {
+  const container = document.getElementById('locMiniMap');
+  container.classList.remove('hidden');
+
+  if (!miniMap) {
+    const { Map } = await google.maps.importLibrary('maps');
+    const { AdvancedMarkerElement } = await google.maps.importLibrary('marker');
+
+    miniMap = new Map(container, {
+      center: { lat: currentLat, lng: currentLng },
+      zoom: 16,
+      mapId: 'DEMO_MAP_ID',
+      disableDefaultUI: true,
+      gestureHandling: 'none',
+    });
+
+    const pin = document.createElement('div');
+    pin.innerHTML = buildPinHTML('pending');
+    miniMarker = new AdvancedMarkerElement({
+      map: miniMap, position: { lat: currentLat, lng: currentLng }, content: pin,
+    });
+  } else {
+    miniMap.setCenter({ lat: currentLat, lng: currentLng });
+    if (miniMarker) miniMarker.position = { lat: currentLat, lng: currentLng };
+  }
+}
+
+/* ═══════════════════════════════════════
+   معاينة الصورة
+═══════════════════════════════════════ */
+function previewPhoto(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    photoData = ev.target.result;
+    document.getElementById('photoPreviewArea').innerHTML =
+      `<img src="${photoData}" alt="صورة الموقف" />`;
+  };
+  reader.readAsDataURL(file);
+}
+
+/* ═══════════════════════════════════════
+   إرسال البلاغ
+═══════════════════════════════════════ */
+function submitReport() {
+  if (!currentLat || !currentLng) {
+    showToast('⚠️ يُرجى تحديد الموقع أولاً');
+    return;
+  }
+
+  const submitBtn = document.getElementById('submitBtn');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'جارٍ الإرسال...';
+
+  const report = DB.save({
+    name:    document.getElementById('locName').value.trim() || 'موقف غير مسمى',
+    notes:   document.getElementById('locNotes').value.trim(),
+    lat:     currentLat,
+    lng:     currentLng,
+    address: currentAddress,
+    photo:   photoData,
+  });
+
+  // إضافة ماركر فوري على الخريطة
+  addMarkerToMap(report);
+
+  setTimeout(() => {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'إرسال البلاغ';
+    closeModal();
+    updateStats();
+    renderAdmin();
+    switchTab('admin', document.querySelector('[data-tab="admin"]'));
+    showToast('✅ تم استلام البلاغ وسيُعرض بعد الاعتماد');
+  }, 600);
+}
+
+/* ═══════════════════════════════════════
+   لوحة الإدارة
+═══════════════════════════════════════ */
+function renderAdmin() {
+  const filter = document.getElementById('filterSelect').value;
+  let reports = DB.getAll();
+  if (filter !== 'all') reports = reports.filter(r => r.status === filter);
+
+  document.getElementById('adminCount').textContent = `${reports.length} بلاغ`;
+  const list = document.getElementById('adminList');
+
+  if (reports.length === 0) {
+    list.innerHTML = `<div style="text-align:center;padding:40px;color:#9AA0A6;">
+      <div style="font-size:40px;margin-bottom:12px;">📭</div>
+      <div>لا توجد بلاغات</div>
+    </div>`;
+    return;
+  }
+
+  list.innerHTML = reports.map(r => buildAdminCard(r)).join('');
+}
+
+function buildAdminCard(r) {
+  const statusBadge = { approved:'معتمد', pending:'قيد المراجعة', rejected:'مرفوض' }[r.status];
+  const date = new Date(r.createdAt).toLocaleDateString('ar-SA', { year:'numeric', month:'short', day:'numeric' });
+  const actions = r.status === 'pending' ? `
+    <div class="card-actions">
+      <button class="card-btn btn-approve" onclick="changeStatus('${r.id}','approved')">✓ اعتماد</button>
+      <button class="card-btn btn-reject"  onclick="changeStatus('${r.id}','rejected')">✕ رفض</button>
+      <button class="card-btn btn-map"     onclick="goToMap('${r.id}')">🗺 عرض</button>
+    </div>` : `
+    <div class="card-actions">
+      <button class="card-btn btn-map" onclick="goToMap('${r.id}')">🗺 عرض على الخريطة</button>
+    </div>`;
+
+  return `
+    <div class="report-card" id="card-${r.id}">
+      <div class="card-row">
+        <div>
+          <div class="card-name">${r.name}</div>
+          ${r.notes ? `<div class="card-notes">${r.notes}</div>` : ''}
+          ${r.address ? `<div class="card-notes" style="color:#9AA0A6;font-size:12px;">📍 ${r.address}</div>` : ''}
+        </div>
+        <span class="badge ${r.status}">${statusBadge}</span>
+      </div>
+      <div class="card-meta">
+        <span>📅 ${date}</span>
+        <span>🌐 ${r.lat.toFixed(4)}, ${r.lng.toFixed(4)}</span>
+      </div>
+      ${r.photo ? `<img class="card-photo" src="${r.photo}" alt="صورة الموقف" />` : ''}
+      ${actions}
+    </div>`;
+}
+
+function changeStatus(id, status) {
+  const report = DB.updateStatus(id, status);
+  if (report) {
+    updateMarker(report);
+    updateStats();
+    renderAdmin();
+    const label = status === 'approved' ? 'تم اعتماد الموقف وإضافته للخريطة ✅' : 'تم رفض البلاغ';
+    showToast(label);
+  }
+}
+
+function goToMap(id) {
+  const report = DB.getById(id);
+  if (!report || !map) return;
+  switchTab('map', document.querySelector('[data-tab="map"]'));
+  map.panTo({ lat: report.lat, lng: report.lng });
+  map.setZoom(16);
+  // فتح نافذة المعلومات
+  setTimeout(() => {
+    if (markers[id]) google.maps.event.trigger(markers[id], 'click');
+  }, 300);
+}
+
+/* ═══════════════════════════════════════
+   التنقل بين التبويبات
+═══════════════════════════════════════ */
+function switchTab(name, clickedEl) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+
+  if (clickedEl) clickedEl.classList.add('active');
+  document.getElementById('tab-' + name).classList.remove('hidden');
+
+  if (name === 'admin') renderAdmin();
+  if (name === 'map') renderMapMarkers();
+}
+
+/* ═══════════════════════════════════════
+   الإحصائيات في الهيدر
+═══════════════════════════════════════ */
+function updateStats() {
+  const s = DB.stats();
+  document.getElementById('statsLabel').textContent =
+    `${s.approved} معتمد · ${s.pending} قيد المراجعة`;
+}
+
+/* ═══════════════════════════════════════
+   إشعار Toast
+═══════════════════════════════════════ */
+let toastTimer = null;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.add('hidden'), 3500);
+}

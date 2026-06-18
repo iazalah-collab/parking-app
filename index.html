@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>مواقف ذوي الإعاقة</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+<!-- ============ SPLASH ============ -->
+<div id="splash">
+  <div class="splash-icon">♿</div>
+  <h1>مواقف ذوي الإعاقة</h1>
+  <p>أبلغ عن مواقف جديدة وساهم في بناء مجتمع أكثر شمولاً</p>
+</div>
+
+<!-- ============ APP SHELL ============ -->
+<div id="app" class="hidden">
+
+  <!-- Header -->
+  <header>
+    <div class="header-brand">
+      <span class="brand-icon">♿</span>
+      <div>
+        <div class="brand-name">مواقف ذوي الإعاقة</div>
+        <div class="brand-sub" id="statsLabel">جارٍ التحميل...</div>
+      </div>
+    </div>
+    <button class="header-btn" id="reportBtn" onclick="openModal()">
+      <span>+</span> إبلاغ
+    </button>
+  </header>
+
+  <!-- Tabs -->
+  <nav class="tabs">
+    <button class="tab active" data-tab="map" onclick="switchTab('map',this)">🗺 الخريطة</button>
+    <button class="tab" data-tab="admin" onclick="switchTab('admin',this)">🛡 الإدارة</button>
+  </nav>
+
+  <!-- Map View -->
+  <div id="tab-map" class="tab-panel active">
+    <div id="map"></div>
+    <div class="map-legend">
+      <div class="legend-item"><span class="dot green"></span> معتمد</div>
+      <div class="legend-item"><span class="dot amber"></span> قيد المراجعة</div>
+    </div>
+  </div>
+
+  <!-- Admin View -->
+  <div id="tab-admin" class="tab-panel hidden">
+    <div class="admin-toolbar">
+      <select id="filterSelect" onchange="renderAdmin()">
+        <option value="all">جميع البلاغات</option>
+        <option value="pending">قيد المراجعة</option>
+        <option value="approved">معتمدة</option>
+        <option value="rejected">مرفوضة</option>
+      </select>
+      <span id="adminCount" class="admin-count"></span>
+    </div>
+    <div id="adminList"></div>
+  </div>
+
+</div>
+
+<!-- ============ REPORT MODAL ============ -->
+<div id="modalOverlay" class="modal-overlay hidden" onclick="closeModalOutside(event)">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+
+    <div class="modal-header">
+      <h2 id="modalTitle">إبلاغ عن موقف</h2>
+      <button class="modal-close" onclick="closeModal()" aria-label="إغلاق">✕</button>
+    </div>
+
+    <div class="modal-body">
+
+      <!-- Step 1: Location -->
+      <div class="form-section">
+        <div class="form-label">📍 الموقع الجغرافي <span class="required">*</span></div>
+        <button class="loc-btn" id="locBtn" onclick="getLocation()">
+          <span id="locBtnIcon">📡</span>
+          <div>
+            <div id="locBtnTitle">تحديد موقعي الحالي</div>
+            <div id="locBtnSub" class="loc-sub">اضغط للحصول على الإحداثيات</div>
+          </div>
+        </button>
+        <div id="locMiniMap" class="loc-mini-map hidden"></div>
+      </div>
+
+      <!-- Step 2: Name -->
+      <div class="form-section">
+        <label class="form-label" for="locName">🏢 اسم الموقع</label>
+        <input type="text" id="locName" placeholder="مثال: مستشفى الملك فهد، مركز تسوق النخيل..." />
+      </div>
+
+      <!-- Step 3: Notes -->
+      <div class="form-section">
+        <label class="form-label" for="locNotes">📝 ملاحظات</label>
+        <textarea id="locNotes" rows="3" placeholder="وصف الموقف، عدد الأماكن، قربه من المدخل..."></textarea>
+      </div>
+
+      <!-- Step 4: Photo -->
+      <div class="form-section">
+        <div class="form-label">📷 صورة الموقف (اختياري)</div>
+        <label class="photo-label" for="photoInput">
+          <span id="photoPreviewArea">
+            <span style="font-size:28px">📷</span>
+            <span>اضغط لرفع صورة</span>
+          </span>
+          <input type="file" id="photoInput" accept="image/*" capture="environment" onchange="previewPhoto(event)" style="display:none" />
+        </label>
+      </div>
+
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal()">إلغاء</button>
+      <button class="btn-submit" id="submitBtn" onclick="submitReport()">إرسال البلاغ</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============ TOAST ============ -->
+<div id="toast" class="toast hidden"></div>
+
+<!-- Google Maps -->
+<script>
+  // ← ضع مفتاح Google Maps API الخاص بك هنا
+  const GOOGLE_MAPS_API_KEY = 'AIzaSyAjJ7udLfjhRfr44Cey2qPSQHr1kYeDDBM';
+</script>
+<script src="js/db.js"></script>
+<script src="js/app.js"></script>
+<script
+  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAjJ7udLfjhRfr44Cey2qPSQHr1kYeDDBM&libraries=places&callback=initMap&language=ar"
+  async defer>
+</script>
+
+</body>
+</html>
