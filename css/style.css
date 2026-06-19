@@ -88,7 +88,10 @@ header {
   transition: background .15s;
 }
 .header-btn:hover { background: var(--green-d); }
-.header-btn span { font-size: 18px; line-height: 1; }
+.share-btn { background: var(--white); color: var(--green); border: 1.5px solid var(--green); }
+.share-btn:hover { background: var(--green-l); }
+
+
 
 /* ── Tabs ── */
 .tabs {

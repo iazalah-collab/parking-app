@@ -29,9 +29,14 @@
         <div class="brand-sub" id="statsLabel">جارٍ التحميل...</div>
       </div>
     </div>
-    <button class="header-btn" id="reportBtn" onclick="openModal()">
-      <span>+</span> إبلاغ
-    </button>
+    <div style="display:flex;gap:8px">
+      <button class="header-btn share-btn" onclick="shareApp()" title="مشاركة الموقع">
+        <span>🔗</span> مشاركة
+      </button>
+      <button class="header-btn" id="reportBtn" onclick="openModal()">
+        <span>+</span> إرسال موقع
+      </button>
+    </div>
   </header>
 
   <!-- Tabs -->

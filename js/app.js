@@ -435,8 +435,43 @@ function updateStats() {
 }
 
 /* ═══════════════════════════════════════
-   إشعار Toast
+   مشاركة الموقع
 ═══════════════════════════════════════ */
+async function shareApp() {
+  const shareData = {
+    title: 'مواقف ذوي الإعاقة',
+    text: 'تطبيق للإبلاغ عن مواقف ذوي الإعاقة ومشاركتها — ساهم في بناء مجتمع أكثر شمولاً 🦽',
+    url: window.location.href,
+  };
+
+  // Web Share API — يفتح قائمة المشاركة الأصلية في الجوال
+  if (navigator.share) {
+    try {
+      await navigator.share(shareData);
+      return;
+    } catch (e) {
+      // المستخدم أغلق القائمة
+      if (e.name === 'AbortError') return;
+    }
+  }
+
+  // fallback — نسخ الرابط للحافظة
+  try {
+    await navigator.clipboard.writeText(window.location.href);
+    showToast('✅ تم نسخ رابط الموقع — شاركه مع من تريد!');
+  } catch {
+    // fallback قديم
+    const input = document.createElement('input');
+    input.value = window.location.href;
+    document.body.appendChild(input);
+    input.select();
+    document.execCommand('copy');
+    document.body.removeChild(input);
+    showToast('✅ تم نسخ رابط الموقع — شاركه مع من تريد!');
+  }
+}
+
+
 let toastTimer = null;
 function showToast(msg) {
   const el = document.getElementById('toast');
