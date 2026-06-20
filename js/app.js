@@ -169,8 +169,118 @@ async function updateMarker(report) {
 }
 
 /* ═══════════════════════════════════════
-   نافذة الإبلاغ
+   التبديل بين طريقتَي الإدخال
 ═══════════════════════════════════════ */
+let currentMethod = 'gps'; // 'gps' | 'link'
+
+function switchMethod(method) {
+  currentMethod = method;
+
+  // تحديث أزرار الاختيار
+  document.getElementById('methodGps').classList.toggle('active', method === 'gps');
+  document.getElementById('methodLink').classList.toggle('active', method === 'link');
+
+  // إظهار/إخفاء الأقسام
+  document.getElementById('sectionGps').classList.toggle('hidden', method !== 'gps');
+  document.getElementById('sectionLink').classList.toggle('hidden', method !== 'link');
+
+  // إعادة تعيين الموقع عند التبديل
+  currentLat = null; currentLng = null; currentAddress = '';
+}
+
+/* ═══════════════════════════════════════
+   استخراج الموقع من رابط Google Maps
+═══════════════════════════════════════ */
+async function extractFromLink() {
+  const url = document.getElementById('locLink').value.trim();
+  const iconEl  = document.getElementById('linkBtnIcon');
+  const titleEl = document.getElementById('linkBtnTitle');
+
+  if (!url) { showToast('⚠️ يُرجى إدخال الرابط أولاً'); return; }
+
+  iconEl.textContent  = '⏳';
+  titleEl.textContent = 'جارٍ استخراج الموقع...';
+
+  // --- محاولة 1: إحداثيات مباشرة في الرابط ---
+  // أنماط Google Maps الشائعة:
+  // @lat,lng   |   ll=lat,lng   |   !3dlat!4dlng   |   q=lat,lng   |   place/lat,lng
+  const patterns = [
+    /@(-?\d+\.\d+),(-?\d+\.\d+)/,
+    /[?&]ll=(-?\d+\.\d+),(-?\d+\.\d+)/,
+    /[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/,
+    /!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/,
+    /place\/(-?\d+\.\d+),(-?\d+\.\d+)/,
+  ];
+
+  let lat = null, lng = null;
+  for (const pat of patterns) {
+    const m = url.match(pat);
+    if (m) { lat = parseFloat(m[1]); lng = parseFloat(m[2]); break; }
+  }
+
+  // --- محاولة 2: Geocoding بالاسم إذا كان في الرابط ---
+  if (!lat || !lng) {
+    try {
+      // استخراج اسم المكان من روابط مثل /maps/place/اسم+المكان/
+      const placeMatch = url.match(/maps\/place\/([^/@?]+)/);
+      if (placeMatch) {
+        const placeName = decodeURIComponent(placeMatch[1].replace(/\+/g, ' '));
+        const { Geocoder } = await google.maps.importLibrary('geocoding');
+        const geocoder = new Geocoder();
+        const res = await geocoder.geocode({ address: placeName });
+        if (res.results[0]) {
+          lat = res.results[0].geometry.location.lat();
+          lng = res.results[0].geometry.location.lng();
+          currentAddress = res.results[0].formatted_address;
+          if (!document.getElementById('locName').value) {
+            document.getElementById('locName').value = placeName.replace(/\+/g, ' ');
+          }
+        }
+      }
+    } catch(e) { /* تجاهل */ }
+  }
+
+  if (lat && lng) {
+    currentLat = lat; currentLng = lng;
+    iconEl.textContent  = '✅';
+    titleEl.textContent = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+
+    // عكس الترميز للعنوان النصي إن لم يُحدَّد بعد
+    if (!currentAddress) {
+      try {
+        const { Geocoder } = await google.maps.importLibrary('geocoding');
+        const res = await new Geocoder().geocode({ location: { lat, lng } });
+        if (res.results[0]) currentAddress = res.results[0].formatted_address;
+      } catch(e) {}
+    }
+
+    renderMiniMapLink(lat, lng);
+    showToast('✅ تم تحديد الموقع من الرابط');
+  } else {
+    iconEl.textContent  = '❌';
+    titleEl.textContent = 'تعذّر استخراج الموقع';
+    showToast('⚠️ الرابط لا يحتوي على إحداثيات — جرّب نسخ الرابط من Google Maps مباشرةً');
+  }
+}
+
+async function renderMiniMapLink(lat, lng) {
+  const container = document.getElementById('locMiniMapLink');
+  container.classList.remove('hidden');
+
+  const { Map } = await google.maps.importLibrary('maps');
+  const { AdvancedMarkerElement } = await google.maps.importLibrary('marker');
+
+  const m = new Map(container, {
+    center: { lat, lng }, zoom: 16,
+    mapId: 'DEMO_MAP_ID',
+    disableDefaultUI: true, gestureHandling: 'none',
+  });
+  const pin = document.createElement('div');
+  pin.innerHTML = buildPinHTML('pending');
+  new AdvancedMarkerElement({ map: m, position: { lat, lng }, content: pin });
+}
+
+
 function openModal() {
   resetModal();
   document.getElementById('modalOverlay').classList.remove('hidden');
@@ -189,13 +299,28 @@ function closeModalOutside(e) {
 function resetModal() {
   currentLat = null; currentLng = null;
   currentAddress = ''; photoData = null;
-  document.getElementById('locName').value = '';
+  currentMethod = 'gps';
+
+  document.getElementById('locName').value  = '';
   document.getElementById('locNotes').value = '';
+  document.getElementById('locLink').value  = '';
+
+  // إعادة تعيين GPS
   document.getElementById('locBtnTitle').textContent = 'تحديد موقعي الحالي';
-  document.getElementById('locBtnSub').textContent = 'اضغط للحصول على الإحداثيات';
-  document.getElementById('locBtnIcon').textContent = '📡';
+  document.getElementById('locBtnSub').textContent   = 'اضغط للحصول على الإحداثيات';
+  document.getElementById('locBtnIcon').textContent  = '📡';
   document.getElementById('locMiniMap').classList.add('hidden');
-  document.getElementById('photoPreviewArea').innerHTML = '<span style="font-size:28px">📷</span><span>اضغط لرفع صورة</span>';
+
+  // إعادة تعيين الرابط
+  document.getElementById('linkBtnIcon').textContent  = '🔍';
+  document.getElementById('linkBtnTitle').textContent = 'استخراج الموقع من الرابط';
+  document.getElementById('locMiniMapLink').classList.add('hidden');
+
+  // العودة للطريقة الأولى
+  switchMethod('gps');
+
+  document.getElementById('photoPreviewArea').innerHTML =
+    '<span style="font-size:28px">📷</span><span>اضغط لرفع صورة</span>';
   document.getElementById('photoInput').value = '';
   miniMap = null; miniMarker = null;
 }

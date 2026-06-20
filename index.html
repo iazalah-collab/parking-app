@@ -75,15 +75,35 @@
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
 
     <div class="modal-header">
-      <h2 id="modalTitle">إبلاغ عن موقف</h2>
+      <h2 id="modalTitle">إرسال موقع</h2>
       <button class="modal-close" onclick="closeModal()" aria-label="إغلاق">✕</button>
     </div>
 
     <div class="modal-body">
 
-      <!-- Step 1: Location -->
+      <!-- اختيار طريقة تحديد الموقع -->
       <div class="form-section">
-        <div class="form-label">📍 الموقع الجغرافي <span class="required">*</span></div>
+        <div class="form-label">📍 طريقة تحديد الموقع <span class="required">*</span></div>
+        <div class="method-toggle">
+          <button class="method-btn active" id="methodGps" onclick="switchMethod('gps')">
+            <span>📡</span>
+            <div>
+              <div class="method-title">موقعي الحالي</div>
+              <div class="method-sub">GPS تلقائي</div>
+            </div>
+          </button>
+          <button class="method-btn" id="methodLink" onclick="switchMethod('link')">
+            <span>🔗</span>
+            <div>
+              <div class="method-title">رابط الموقع</div>
+              <div class="method-sub">Google Maps أو أي رابط</div>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      <!-- الطريقة الأولى: GPS -->
+      <div id="sectionGps" class="form-section">
         <button class="loc-btn" id="locBtn" onclick="getLocation()">
           <span id="locBtnIcon">📡</span>
           <div>
@@ -94,19 +114,32 @@
         <div id="locMiniMap" class="loc-mini-map hidden"></div>
       </div>
 
-      <!-- Step 2: Name -->
+      <!-- الطريقة الثانية: رابط -->
+      <div id="sectionLink" class="form-section hidden">
+        <input type="url" id="locLink" placeholder="https://maps.google.com/..." />
+        <button class="loc-btn" style="margin-top:8px" onclick="extractFromLink()">
+          <span id="linkBtnIcon">🔍</span>
+          <div>
+            <div id="linkBtnTitle">استخراج الموقع من الرابط</div>
+            <div class="loc-sub">سيتم تحديد الإحداثيات تلقائياً</div>
+          </div>
+        </button>
+        <div id="locMiniMapLink" class="loc-mini-map hidden" style="margin-top:8px"></div>
+      </div>
+
+      <!-- اسم الموقع -->
       <div class="form-section">
         <label class="form-label" for="locName">🏢 اسم الموقع</label>
         <input type="text" id="locName" placeholder="مثال: مستشفى الملك فهد، مركز تسوق النخيل..." />
       </div>
 
-      <!-- Step 3: Notes -->
+      <!-- ملاحظات -->
       <div class="form-section">
         <label class="form-label" for="locNotes">📝 ملاحظات</label>
         <textarea id="locNotes" rows="3" placeholder="وصف الموقف، عدد الأماكن، قربه من المدخل..."></textarea>
       </div>
 
-      <!-- Step 4: Photo -->
+      <!-- صورة -->
       <div class="form-section">
         <div class="form-label">📷 صورة الموقف (اختياري)</div>
         <label class="photo-label" for="photoInput">
@@ -122,7 +155,7 @@
 
     <div class="modal-footer">
       <button class="btn-cancel" onclick="closeModal()">إلغاء</button>
-      <button class="btn-submit" id="submitBtn" onclick="submitReport()">إرسال البلاغ</button>
+      <button class="btn-submit" id="submitBtn" onclick="submitReport()">إرسال الموقع</button>
     </div>
 
   </div>
