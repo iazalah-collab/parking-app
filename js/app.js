@@ -201,9 +201,7 @@ async function extractFromLink() {
   iconEl.textContent  = '⏳';
   titleEl.textContent = 'جارٍ استخراج الموقع...';
 
-  // --- محاولة 1: إحداثيات مباشرة في الرابط ---
-  // أنماط Google Maps الشائعة:
-  // @lat,lng   |   ll=lat,lng   |   !3dlat!4dlng   |   q=lat,lng   |   place/lat,lng
+  // --- محاولة 1: إحداثيات مباشرة في الرابط الطويل ---
   const patterns = [
     /@(-?\d+\.\d+),(-?\d+\.\d+)/,
     /[?&]ll=(-?\d+\.\d+),(-?\d+\.\d+)/,
@@ -218,28 +216,82 @@ async function extractFromLink() {
     if (m) { lat = parseFloat(m[1]); lng = parseFloat(m[2]); break; }
   }
 
-  // --- محاولة 2: Geocoding بالاسم إذا كان في الرابط ---
+  // --- محاولة 2: رابط مختصر goo.gl أو maps.app.goo.gl ---
+  if (!lat || !lng) {
+    const isShortLink = url.includes('goo.gl') || url.includes('maps.app');
+    if (isShortLink) {
+      try {
+        // نستخدم خدمة وسيطة مجانية لفكّ الرابط المختصر
+        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+        const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(8000) });
+        const data = await res.json();
+
+        // نبحث في الـ HTML المُعاد عن الإحداثيات
+        const html = data.contents || '';
+        for (const pat of patterns) {
+          const m = html.match(pat);
+          if (m) { lat = parseFloat(m[1]); lng = parseFloat(m[2]); break; }
+        }
+
+        // أو نبحث عن الـ URL النهائي بعد إعادة التوجيه
+        if (!lat || !lng) {
+          const urlMatch = html.match(/https:\/\/www\.google\.com\/maps[^"'\s]*/);
+          if (urlMatch) {
+            const finalUrl = urlMatch[0].replace(/\\u003d/g,'=').replace(/\\u0026/g,'&');
+            for (const pat of patterns) {
+              const m = finalUrl.match(pat);
+              if (m) { lat = parseFloat(m[1]); lng = parseFloat(m[2]); break; }
+            }
+          }
+        }
+      } catch(e) {
+        // إذا فشل الـ proxy جرّب Places Text Search
+        console.warn('Proxy failed, trying Places API:', e);
+      }
+    }
+  }
+
+  // --- محاولة 3: Place Text Search عبر Google Places ---
   if (!lat || !lng) {
     try {
-      // استخراج اسم المكان من روابط مثل /maps/place/اسم+المكان/
-      const placeMatch = url.match(/maps\/place\/([^/@?]+)/);
+      const placeMatch = url.match(/maps\/place\/([^/@?&]+)/);
       if (placeMatch) {
-        const placeName = decodeURIComponent(placeMatch[1].replace(/\+/g, ' '));
+        const placeName = decodeURIComponent(placeMatch[1].replace(/\+/g, ' ').replace(/-/g,' '));
+        const { Place } = await google.maps.importLibrary('places');
+        const req = { textQuery: placeName, fields: ['location','displayName','formattedAddress'] };
+        const { places } = await Place.searchByText(req);
+        if (places && places[0]) {
+          lat = places[0].location.lat();
+          lng = places[0].location.lng();
+          currentAddress = places[0].formattedAddress || '';
+          if (!document.getElementById('locName').value) {
+            document.getElementById('locName').value = places[0].displayName || placeName;
+          }
+        }
+      }
+    } catch(e) { console.warn('Places API failed:', e); }
+  }
+
+  // --- محاولة 4: Geocoding بالاسم ---
+  if (!lat || !lng) {
+    try {
+      const placeMatch = url.match(/maps\/place\/([^/@?&]+)/);
+      if (placeMatch) {
+        const placeName = decodeURIComponent(placeMatch[1].replace(/\+/g,' ').replace(/-/g,' '));
         const { Geocoder } = await google.maps.importLibrary('geocoding');
-        const geocoder = new Geocoder();
-        const res = await geocoder.geocode({ address: placeName });
+        const res = await new Geocoder().geocode({ address: placeName });
         if (res.results[0]) {
           lat = res.results[0].geometry.location.lat();
           lng = res.results[0].geometry.location.lng();
           currentAddress = res.results[0].formatted_address;
-          if (!document.getElementById('locName').value) {
-            document.getElementById('locName').value = placeName.replace(/\+/g, ' ');
-          }
+          if (!document.getElementById('locName').value)
+            document.getElementById('locName').value = placeName;
         }
       }
-    } catch(e) { /* تجاهل */ }
+    } catch(e) {}
   }
 
+  // ─── النتيجة النهائية ───
   if (lat && lng) {
     currentLat = lat; currentLng = lng;
     iconEl.textContent  = '✅';
@@ -259,9 +311,32 @@ async function extractFromLink() {
   } else {
     iconEl.textContent  = '❌';
     titleEl.textContent = 'تعذّر استخراج الموقع';
-    showToast('⚠️ الرابط لا يحتوي على إحداثيات — جرّب نسخ الرابط من Google Maps مباشرةً');
+    showToast('⚠️ لم يُتمكن من قراءة الرابط — جرّب الطريقة أدناه 👇');
+    // عرض تعليمات بديلة
+    showLinkHelp();
   }
 }
+
+function showLinkHelp() {
+  const section = document.getElementById('sectionLink');
+  let help = section.querySelector('.link-help');
+  if (help) return;
+  help = document.createElement('div');
+  help.className = 'link-help';
+  help.innerHTML = `
+    <div class="help-title">💡 كيف تحصل على رابط يعمل؟</div>
+    <ol class="help-steps">
+      <li>افتح Google Maps على جهازك</li>
+      <li>اضغط على الموقع المطلوب</li>
+      <li>اضغط <strong>مشاركة</strong> ثم <strong>نسخ الرابط</strong></li>
+      <li>أو اضغط على <strong>...</strong> ثم <strong>Share</strong></li>
+      <li>الصق الرابط هنا مجدداً</li>
+    </ol>
+    <div class="help-alt">أو استخدم <strong>موقعي الحالي</strong> إذا أنت في المكان الآن</div>
+  `;
+  section.appendChild(help);
+}
+
 
 async function renderMiniMapLink(lat, lng) {
   const container = document.getElementById('locMiniMapLink');

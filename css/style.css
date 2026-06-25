@@ -353,6 +353,18 @@ input:focus, textarea:focus { border-color: var(--green); background: var(--whit
   cursor: pointer;
 }
 
+/* ── Link Help ── */
+.link-help {
+  background: #FFF8E7;
+  border: 1px solid #EF9F27;
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  margin-top: 8px;
+}
+.help-title { font-size: 13px; font-weight: 700; color: #854F0B; margin-bottom: 8px; }
+.help-steps { padding-right: 18px; font-size: 13px; color: var(--gray-700); line-height: 2; }
+.help-alt { font-size: 12px; color: var(--gray-400); margin-top: 8px; border-top: 1px solid #EF9F2740; padding-top: 8px; }
+
 /* ── Responsive ── */
 @media (min-width: 640px) {
   .modal { max-width: 480px; margin: auto; border-radius: var(--radius); }
