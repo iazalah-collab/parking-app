@@ -3,6 +3,10 @@
  * Google Maps API + إدارة البلاغات
  */
 
+// ← بيانات دخول المدير — غيّرها لما تريد
+const ADMIN_USER = 'admin';
+const ADMIN_PASS = 'parking2024';
+
 // ← رابط الـ Worker الخاص بك على Cloudflare
 const WORKER_URL = 'https://maps-resolver.i-a-zalah.workers.dev';
 
@@ -22,6 +26,52 @@ let pickMap = null;
 let pickMarker = null;
 
 /* ═══════════════════════════════════════
+   تسجيل دخول الإدارة
+═══════════════════════════════════════ */
+let isAdminLoggedIn = false;
+
+function handleAdminTab(el) {
+  switchTab('admin', el);
+  if (isAdminLoggedIn) {
+    document.getElementById('adminLogin').classList.add('hidden');
+    document.getElementById('adminContent').classList.remove('hidden');
+    renderAdmin();
+  } else {
+    document.getElementById('adminLogin').classList.remove('hidden');
+    document.getElementById('adminContent').classList.add('hidden');
+  }
+}
+
+function doLogin() {
+  const user = document.getElementById('adminUser').value.trim();
+  const pass = document.getElementById('adminPass').value;
+  const errEl = document.getElementById('loginError');
+
+  if (user === ADMIN_USER && pass === ADMIN_PASS) {
+    isAdminLoggedIn = true;
+    errEl.classList.add('hidden');
+    document.getElementById('adminUser').value = '';
+    document.getElementById('adminPass').value = '';
+    document.getElementById('adminLogin').classList.add('hidden');
+    document.getElementById('adminContent').classList.remove('hidden');
+    renderAdmin();
+    showToast('✅ مرحباً بك في لوحة الإدارة');
+  } else {
+    errEl.classList.remove('hidden');
+    document.getElementById('adminPass').value = '';
+    document.getElementById('adminPass').focus();
+  }
+}
+
+function doLogout() {
+  isAdminLoggedIn = false;
+  document.getElementById('adminLogin').classList.remove('hidden');
+  document.getElementById('adminContent').classList.add('hidden');
+  showToast('تم تسجيل الخروج');
+  switchTab('map', document.querySelector('[data-tab="map"]'));
+}
+
+/* ═══════════════════════════════════════
    تهيئة Google Maps
 ═══════════════════════════════════════ */
 async function initMap() {
@@ -37,8 +87,20 @@ async function initMap() {
   const { Map } = await google.maps.importLibrary('maps');
   await google.maps.importLibrary('marker');
 
+  // حاول تحديد موقع المستخدم أولاً
+  let center = defaultCenter;
+  try {
+    center = await new Promise((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        p => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
+        () => resolve(defaultCenter),
+        { timeout: 5000 }
+      );
+    });
+  } catch(e) { center = defaultCenter; }
+
   map = new Map(document.getElementById('map'), {
-    center: defaultCenter,
+    center,
     zoom: 13,
     mapId: 'DEMO_MAP_ID',
     disableDefaultUI: false,

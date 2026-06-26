@@ -42,7 +42,7 @@
   <!-- Tabs -->
   <nav class="tabs">
     <button class="tab active" data-tab="map" onclick="switchTab('map',this)">🗺 الخريطة</button>
-    <button class="tab" data-tab="admin" onclick="switchTab('admin',this)">🛡 الإدارة</button>
+    <button class="tab" data-tab="admin" onclick="handleAdminTab(this)">🛡 الإدارة</button>
   </nav>
 
   <!-- Map View -->
@@ -56,16 +56,42 @@
 
   <!-- Admin View -->
   <div id="tab-admin" class="tab-panel hidden">
-    <div class="admin-toolbar">
-      <select id="filterSelect" onchange="renderAdmin()">
-        <option value="all">جميع البلاغات</option>
-        <option value="pending">قيد المراجعة</option>
-        <option value="approved">معتمدة</option>
-        <option value="rejected">مرفوضة</option>
-      </select>
-      <span id="adminCount" class="admin-count"></span>
+
+    <!-- شاشة تسجيل الدخول -->
+    <div id="adminLogin" class="admin-login">
+      <div class="login-card">
+        <div class="login-icon">🛡</div>
+        <div class="login-title">لوحة الإدارة</div>
+        <div class="login-sub">هذه الصفحة مخصصة لمدير النظام فقط</div>
+        <div class="login-field">
+          <label class="form-label" for="adminUser">اسم المستخدم</label>
+          <input type="text" id="adminUser" placeholder="أدخل اسم المستخدم" autocomplete="username" />
+        </div>
+        <div class="login-field">
+          <label class="form-label" for="adminPass">كلمة المرور</label>
+          <input type="password" id="adminPass" placeholder="أدخل كلمة المرور" autocomplete="current-password"
+            onkeydown="if(event.key==='Enter') doLogin()" />
+        </div>
+        <div id="loginError" class="login-error hidden">اسم المستخدم أو كلمة المرور غير صحيحة</div>
+        <button class="btn-submit" onclick="doLogin()">دخول</button>
+      </div>
     </div>
-    <div id="adminList"></div>
+
+    <!-- محتوى الإدارة (بعد تسجيل الدخول) -->
+    <div id="adminContent" class="hidden">
+      <div class="admin-toolbar">
+        <select id="filterSelect" onchange="renderAdmin()">
+          <option value="all">جميع البلاغات</option>
+          <option value="pending">قيد المراجعة</option>
+          <option value="approved">معتمدة</option>
+          <option value="rejected">مرفوضة</option>
+        </select>
+        <span id="adminCount" class="admin-count"></span>
+        <button class="logout-btn" onclick="doLogout()" title="تسجيل الخروج">🚪 خروج</button>
+      </div>
+      <div id="adminList"></div>
+    </div>
+
   </div>
 
 </div>

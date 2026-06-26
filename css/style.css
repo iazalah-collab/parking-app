@@ -396,6 +396,35 @@ input:focus, textarea:focus { border-color: var(--green); background: var(--whit
 .help-steps { padding-right: 18px; font-size: 13px; color: var(--gray-700); line-height: 2; }
 .help-alt { font-size: 12px; color: var(--gray-400); margin-top: 8px; border-top: 1px solid #EF9F2740; padding-top: 8px; }
 
+/* ── Admin Login ── */
+.admin-login {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  padding: 24px; background: var(--gray-50);
+}
+.login-card {
+  background: var(--white); border: 1px solid var(--gray-200);
+  border-radius: var(--radius); padding: 28px 24px;
+  width: 100%; max-width: 340px;
+  display: flex; flex-direction: column; gap: 14px;
+  box-shadow: var(--shadow-md);
+}
+.login-icon { font-size: 36px; text-align: center; }
+.login-title { font-size: 18px; font-weight: 700; text-align: center; color: var(--gray-900); }
+.login-sub   { font-size: 13px; color: var(--gray-400); text-align: center; margin-top: -8px; }
+.login-field { display: flex; flex-direction: column; gap: 6px; }
+.login-error {
+  background: var(--red-l); border: 1px solid var(--red);
+  border-radius: var(--radius-sm); padding: 8px 12px;
+  font-size: 13px; color: var(--red-d); text-align: center;
+}
+.logout-btn {
+  background: var(--red-l); border: 1px solid var(--red);
+  border-radius: var(--radius-sm); padding: 6px 12px;
+  font-size: 12px; font-weight: 500; color: var(--red-d);
+  cursor: pointer; font-family: inherit; white-space: nowrap;
+}
+.logout-btn:hover { background: #f9d5d5; }
+
 /* ── Edit Modal ── */
 .edit-loc-info {
   background: var(--gray-100); border-radius: var(--radius-sm);
