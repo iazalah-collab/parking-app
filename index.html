@@ -84,7 +84,7 @@
       <!-- اختيار طريقة تحديد الموقع -->
       <div class="form-section">
         <div class="form-label">📍 طريقة تحديد الموقع <span class="required">*</span></div>
-        <div class="method-toggle">
+        <div class="method-toggle three">
           <button class="method-btn active" id="methodGps" onclick="switchMethod('gps')">
             <span>📡</span>
             <div>
@@ -92,11 +92,18 @@
               <div class="method-sub">GPS تلقائي</div>
             </div>
           </button>
+          <button class="method-btn" id="methodPick" onclick="switchMethod('pick')">
+            <span>🗺</span>
+            <div>
+              <div class="method-title">اختر على الخريطة</div>
+              <div class="method-sub">اضغط على المكان</div>
+            </div>
+          </button>
           <button class="method-btn" id="methodLink" onclick="switchMethod('link')">
             <span>🔗</span>
             <div>
-              <div class="method-title">رابط الموقع</div>
-              <div class="method-sub">Google Maps أو أي رابط</div>
+              <div class="method-title">رابط طويل</div>
+              <div class="method-sub">maps.google.com</div>
             </div>
           </button>
         </div>
@@ -114,9 +121,22 @@
         <div id="locMiniMap" class="loc-mini-map hidden"></div>
       </div>
 
-      <!-- الطريقة الثانية: رابط -->
+      <!-- الطريقة الثانية: اختر على الخريطة -->
+      <div id="sectionPick" class="form-section hidden">
+        <div class="pick-hint">
+          <span>👆</span> اضغط على أي مكان في الخريطة لتحديد الموقف
+        </div>
+        <div id="locPickMap" class="loc-pick-map"></div>
+        <div id="pickCoords" class="pick-coords hidden"></div>
+      </div>
+
+      <!-- الطريقة الثالثة: رابط طويل -->
       <div id="sectionLink" class="form-section hidden">
-        <input type="url" id="locLink" placeholder="https://maps.google.com/..." />
+        <div class="link-note">
+          📌 هذه الطريقة تعمل مع الروابط الطويلة فقط.<br>
+          لنسخ رابط طويل من Google Maps: افتح الموقع ← اضغط <strong>مشاركة</strong> ← <strong>نسخ الرابط</strong>
+        </div>
+        <input type="url" id="locLink" placeholder="https://www.google.com/maps/place/..." style="margin-top:8px"/>
         <button class="loc-btn" style="margin-top:8px" onclick="extractFromLink()">
           <span id="linkBtnIcon">🔍</span>
           <div>
@@ -167,7 +187,7 @@
 <!-- Google Maps -->
 <script>
   // ← ضع مفتاح Google Maps API الخاص بك هنا
-  const GOOGLE_MAPS_API_KEY = 'AIzaSyAjJ7udLfjhRfr44Cey2qPSQHr1kYeDDBMAIzaSyAjJ7udLfjhRfr44Cey2qPSQHr1kYeDDBM';
+  const GOOGLE_MAPS_API_KEY = 'AIzaSyAjJ7udLfjhRfr44Cey2qPSQHr1kYeDDBM';
 </script>
 <script src="js/db.js"></script>
 <script src="js/app.js"></script>
