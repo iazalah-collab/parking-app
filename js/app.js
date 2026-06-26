@@ -26,8 +26,177 @@ let pickMap = null;
 let pickMarker = null;
 
 /* ═══════════════════════════════════════
-   تسجيل دخول الإدارة
+   تصدير Excel
 ═══════════════════════════════════════ */
+function exportExcel() {
+  const reports = DB.getAll();
+  if (reports.length === 0) { showToast('⚠️ لا توجد بيانات للتصدير'); return; }
+
+  const statusMap = { approved: 'معتمد', pending: 'قيد المراجعة', rejected: 'مرفوض' };
+
+  const rows = reports.map(r => ({
+    'الاسم':          r.name  || '',
+    'الملاحظات':      r.notes || '',
+    'العنوان':        r.address || '',
+    'خط العرض':       r.lat,
+    'خط الطول':       r.lng,
+    'رابط Google Maps': `https://www.google.com/maps?q=${r.lat},${r.lng}`,
+    'الحالة':         statusMap[r.status] || r.status,
+    'تاريخ الإضافة':  new Date(r.createdAt).toLocaleDateString('ar-SA'),
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(rows, { skipHeader: false });
+
+  // عرض الأعمدة
+  ws['!cols'] = [
+    { wch: 22 }, { wch: 30 }, { wch: 35 },
+    { wch: 12 }, { wch: 12 }, { wch: 45 },
+    { wch: 14 }, { wch: 16 },
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'مواقف ذوي الإعاقة');
+
+  const date = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `مواقف_ذوي_الإعاقة_${date}.xlsx`);
+  showToast(`✅ تم تصدير ${reports.length} موقف`);
+}
+
+/* ═══════════════════════════════════════
+   استيراد بيانات من Excel / CSV
+═══════════════════════════════════════ */
+let importedRows = [];
+
+function importFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  e.target.value = '';
+
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const wb   = XLSX.read(ev.target.result, { type: 'binary' });
+      const ws   = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+      if (!data.length) { showToast('⚠️ الملف فارغ أو لا يحتوي على بيانات'); return; }
+
+      // تطبيع الأعمدة — يدعم أسماء عربية وإنجليزية
+      importedRows = data.map(row => {
+        const get = (...keys) => {
+          for (const k of keys) {
+            const found = Object.keys(row).find(rk => rk.trim() === k);
+            if (found && row[found] !== '') return String(row[found]).trim();
+          }
+          return '';
+        };
+
+        const lat = parseFloat(get('خط العرض','lat','latitude','Lat')) || null;
+        const lng = parseFloat(get('خط الطول','lng','longitude','Lng')) || null;
+
+        // استخراج إحداثيات من رابط Google Maps إذا لم تكن موجودة
+        let resolvedLat = lat, resolvedLng = lng;
+        if (!resolvedLat || !resolvedLng) {
+          const link = get('رابط Google Maps','link','url','رابط');
+          if (link) {
+            const m = link.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/) ||
+                      link.match(/[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/) ||
+                      link.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+            if (m) { resolvedLat = parseFloat(m[1]); resolvedLng = parseFloat(m[2]); }
+          }
+        }
+
+        return {
+          name:    get('الاسم','name','اسم الموقع','Name') || 'موقف غير مسمى',
+          notes:   get('الملاحظات','notes','ملاحظات','Notes'),
+          address: get('العنوان','address','عنوان','Address'),
+          lat:     resolvedLat,
+          lng:     resolvedLng,
+          link:    get('رابط Google Maps','link','url','رابط'),
+          valid:   !!(resolvedLat && resolvedLng),
+        };
+      });
+
+      showImportPreview();
+    } catch(err) {
+      showToast('⚠️ تعذّر قراءة الملف — تأكد أنه Excel أو CSV صحيح');
+    }
+  };
+  reader.readAsBinaryString(file);
+}
+
+function showImportPreview() {
+  const valid   = importedRows.filter(r => r.valid).length;
+  const invalid = importedRows.length - valid;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'import-overlay';
+  overlay.id = 'importOverlay';
+  overlay.innerHTML = `
+    <div class="import-modal">
+      <div class="import-header">
+        <h2>📤 معاينة الاستيراد</h2>
+        <button class="modal-close" onclick="closeImport()">✕</button>
+      </div>
+      <div class="import-body">
+        <div class="import-stats">
+          إجمالي الصفوف: <strong>${importedRows.length}</strong> &nbsp;|&nbsp;
+          صالحة للاستيراد: <strong style="color:var(--green-d)">${valid}</strong>
+          ${invalid ? `&nbsp;|&nbsp; بدون إحداثيات: <strong style="color:var(--red-d)">${invalid}</strong>` : ''}
+        </div>
+        <div style="overflow-x:auto">
+          <table class="import-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>الاسم</th>
+                <th>الملاحظات</th>
+                <th>العنوان</th>
+                <th>الإحداثيات</th>
+                <th>الحالة</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${importedRows.map((r,i) => `
+                <tr>
+                  <td>${i+1}</td>
+                  <td>${r.name}</td>
+                  <td>${r.notes || '—'}</td>
+                  <td>${r.address || '—'}</td>
+                  <td style="direction:ltr">${r.valid ? `${r.lat?.toFixed(4)}, ${r.lng?.toFixed(4)}` : '<span style="color:var(--red-d)">غير متوفر</span>'}</td>
+                  <td>${r.valid ? '<span style="color:var(--green-d)">✓ صالح</span>' : '<span style="color:var(--red-d)">✕ مُهمل</span>'}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="import-footer">
+        <button class="btn-cancel" onclick="closeImport()">إلغاء</button>
+        <button class="btn-submit" onclick="confirmImport()" ${valid===0?'disabled':''}>
+          📥 استيراد ${valid} موقف
+        </button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+function confirmImport() {
+  const valid = importedRows.filter(r => r.valid);
+  valid.forEach(r => DB.save({ name: r.name, notes: r.notes, address: r.address, lat: r.lat, lng: r.lng }));
+  closeImport();
+  renderAdmin();
+  renderMapMarkers();
+  updateStats();
+  showToast(`✅ تم استيراد ${valid.length} موقف بنجاح`);
+}
+
+function closeImport() {
+  const el = document.getElementById('importOverlay');
+  if (el) el.remove();
+  importedRows = [];
+}
+
+
 let isAdminLoggedIn = false;
 
 function handleAdminTab(el) {
@@ -565,10 +734,12 @@ function buildAdminCard(r) {
       <button class="card-btn btn-approve" onclick="changeStatus('${r.id}','approved')">✓ اعتماد</button>
       <button class="card-btn btn-reject"  onclick="changeStatus('${r.id}','rejected')">✕ رفض</button>
       <button class="card-btn btn-map"     onclick="goToMap('${r.id}')">🗺 عرض</button>
+      <button class="card-btn btn-delete"  onclick="deleteReport('${r.id}','${r.name}')">🗑</button>
     </div>` : `
     <div class="card-actions">
-      <button class="card-btn btn-edit" onclick="openEdit('${r.id}')">✏️ تعديل</button>
-      <button class="card-btn btn-map"  onclick="goToMap('${r.id}')">🗺 عرض على الخريطة</button>
+      <button class="card-btn btn-edit"   onclick="openEdit('${r.id}')">✏️ تعديل</button>
+      <button class="card-btn btn-map"    onclick="goToMap('${r.id}')">🗺 عرض</button>
+      <button class="card-btn btn-delete" onclick="deleteReport('${r.id}','${r.name}')">🗑 حذف</button>
     </div>`;
   return `
     <div class="report-card" id="card-${r.id}">
@@ -735,6 +906,15 @@ function closeEdit() {
 
 function closeEditOutside(e) {
   if (e.target === document.getElementById('editOverlay')) closeEdit();
+}
+
+function deleteReport(id, name) {
+  if (!confirm(`هل أنت متأكد من حذف هذا الموقف؟\n"${name}"\n\nلا يمكن التراجع عن هذا الإجراء.`)) return;
+  DB.delete(id);
+  if (markers[id]) { markers[id].map = null; delete markers[id]; }
+  updateStats();
+  renderAdmin();
+  showToast('🗑 تم حذف الموقف بنجاح');
 }
 
 function changeStatus(id, status) {

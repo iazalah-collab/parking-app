@@ -396,6 +396,55 @@ input:focus, textarea:focus { border-color: var(--green); background: var(--whit
 .help-steps { padding-right: 18px; font-size: 13px; color: var(--gray-700); line-height: 2; }
 .help-alt { font-size: 12px; color: var(--gray-400); margin-top: 8px; border-top: 1px solid #EF9F2740; padding-top: 8px; }
 
+/* ── Export / Import Buttons ── */
+.tool-btn {
+  padding: 6px 12px; border-radius: var(--radius-sm);
+  font-size: 12px; font-weight: 500; font-family: inherit;
+  cursor: pointer; border: 1.5px solid; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.export-btn { background: #E8F5E9; border-color: #4CAF50; color: #1B5E20; }
+.export-btn:hover { background: #C8E6C9; }
+.import-btn { background: #E3F2FD; border-color: #2196F3; color: #0D47A1; }
+.import-btn:hover { background: #BBDEFB; }
+
+/* ── Import Preview Modal ── */
+.import-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.55);
+  display: flex; align-items: flex-end; z-index: 1000;
+}
+.import-modal {
+  background: var(--white); border-radius: var(--radius) var(--radius) 0 0;
+  width: 100%; max-height: 85dvh; display: flex; flex-direction: column;
+  animation: slideUp .25s ease;
+}
+.import-header {
+  padding: 16px 20px 12px; display: flex; align-items: center;
+  justify-content: space-between; border-bottom: 1px solid var(--gray-200); flex-shrink: 0;
+}
+.import-header h2 { font-size: 16px; font-weight: 700; }
+.import-body { padding: 16px; overflow-y: auto; flex: 1; }
+.import-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.import-table th {
+  background: var(--gray-100); padding: 8px 10px; text-align: right;
+  border: 1px solid var(--gray-200); font-weight: 600; white-space: nowrap;
+}
+.import-table td {
+  padding: 7px 10px; border: 1px solid var(--gray-200);
+  color: var(--gray-700); max-width: 160px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.import-table tr:nth-child(even) td { background: var(--gray-50); }
+.import-stats {
+  background: var(--green-l); border: 1px solid var(--green);
+  border-radius: var(--radius-sm); padding: 10px 14px;
+  font-size: 13px; color: var(--green-d); margin-bottom: 12px;
+}
+.import-footer {
+  padding: 14px 20px; border-top: 1px solid var(--gray-200);
+  display: flex; gap: 10px; flex-shrink: 0;
+}
+
 /* ── Admin Login ── */
 .admin-login {
   flex: 1; display: flex; align-items: center; justify-content: center;
@@ -424,6 +473,12 @@ input:focus, textarea:focus { border-color: var(--green); background: var(--whit
   cursor: pointer; font-family: inherit; white-space: nowrap;
 }
 .logout-btn:hover { background: #f9d5d5; }
+
+.btn-delete {
+  background: var(--red-l); border-color: var(--red); color: var(--red-d);
+  flex: 0 0 auto; padding: 8px 10px;
+}
+.btn-delete:hover { opacity: .8; }
 
 /* ── Edit Modal ── */
 .edit-loc-info {
