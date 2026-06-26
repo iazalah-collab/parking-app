@@ -505,7 +505,8 @@ function buildAdminCard(r) {
       <button class="card-btn btn-map"     onclick="goToMap('${r.id}')">🗺 عرض</button>
     </div>` : `
     <div class="card-actions">
-      <button class="card-btn btn-map" onclick="goToMap('${r.id}')">🗺 عرض على الخريطة</button>
+      <button class="card-btn btn-edit" onclick="openEdit('${r.id}')">✏️ تعديل</button>
+      <button class="card-btn btn-map"  onclick="goToMap('${r.id}')">🗺 عرض على الخريطة</button>
     </div>`;
   return `
     <div class="report-card" id="card-${r.id}">
@@ -526,7 +527,155 @@ function buildAdminCard(r) {
     </div>`;
 }
 
-function changeStatus(id, status) {
+/* ═══════════════════════════════════════
+   نافذة التعديل
+═══════════════════════════════════════ */
+let editingId   = null;
+let editLat     = null;
+let editLng     = null;
+let editAddress = '';
+let editPhoto   = null;
+let editPickMap = null;
+let editPickMarker = null;
+
+function openEdit(id) {
+  const report = DB.getById(id);
+  if (!report) return;
+
+  editingId   = id;
+  editLat     = report.lat;
+  editLng     = report.lng;
+  editAddress = report.address || '';
+  editPhoto   = report.photo  || null;
+
+  // ملء الحقول
+  document.getElementById('editName').value  = report.name  || '';
+  document.getElementById('editNotes').value = report.notes || '';
+
+  // عرض الموقع الحالي
+  document.getElementById('editCurrentLoc').innerHTML =
+    `📍 ${report.address || `${report.lat.toFixed(5)}, ${report.lng.toFixed(5)}`}`;
+
+  // الصورة
+  document.getElementById('editPhotoPreview').innerHTML = report.photo
+    ? `<img src="${report.photo}" alt="صورة الموقف" />`
+    : '<span style="font-size:28px">📷</span><span>اضغط لتغيير الصورة</span>';
+
+  document.getElementById('editPickCoords').classList.add('hidden');
+  document.getElementById('editPickMap').innerHTML = '';
+  editPickMap = null; editPickMarker = null;
+
+  document.getElementById('editOverlay').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+
+  // تهيئة خريطة التعديل
+  setTimeout(() => initEditMap(report.lat, report.lng), 100);
+}
+
+async function initEditMap(lat, lng) {
+  const container = document.getElementById('editPickMap');
+  const { Map } = await google.maps.importLibrary('maps');
+  const { AdvancedMarkerElement } = await google.maps.importLibrary('marker');
+
+  editPickMap = new Map(container, {
+    center: { lat, lng }, zoom: 16,
+    mapId: 'DEMO_MAP_ID',
+    disableDefaultUI: false, zoomControl: true,
+    mapTypeControl: false, streetViewControl: false,
+    fullscreenControl: false, gestureHandling: 'greedy',
+  });
+
+  // ماركر للموقع الحالي
+  const pinCurrent = document.createElement('div');
+  pinCurrent.innerHTML = buildPinHTML('approved');
+  editPickMarker = new AdvancedMarkerElement({
+    map: editPickMap, position: { lat, lng }, content: pinCurrent,
+  });
+
+  // عند الضغط لتغيير الموقع
+  editPickMap.addListener('click', async (e) => {
+    const newLat = e.latLng.lat();
+    const newLng = e.latLng.lng();
+    editLat = newLat; editLng = newLng;
+
+    editPickMarker.map = null;
+    const pin = document.createElement('div');
+    pin.innerHTML = buildPinHTML('pending');
+    editPickMarker = new AdvancedMarkerElement({
+      map: editPickMap, position: { lat: newLat, lng: newLng }, content: pin,
+    });
+
+    const coordsEl = document.getElementById('editPickCoords');
+    coordsEl.classList.remove('hidden');
+    coordsEl.textContent = `📍 ${newLat.toFixed(6)}, ${newLng.toFixed(6)} — جارٍ جلب العنوان...`;
+
+    try {
+      const { Geocoder } = await google.maps.importLibrary('geocoding');
+      const res = await new Geocoder().geocode({ location: { lat: newLat, lng: newLng } });
+      if (res.results[0]) {
+        editAddress = res.results[0].formatted_address;
+        coordsEl.textContent = `📍 ${editAddress}`;
+      }
+    } catch(e) {
+      coordsEl.textContent = `📍 ${newLat.toFixed(6)}, ${newLng.toFixed(6)}`;
+    }
+  });
+}
+
+function previewEditPhoto(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    editPhoto = ev.target.result;
+    document.getElementById('editPhotoPreview').innerHTML =
+      `<img src="${editPhoto}" alt="صورة الموقف" />`;
+  };
+  reader.readAsDataURL(file);
+}
+
+function saveEdit() {
+  if (!editingId) return;
+
+  const btn = document.getElementById('editSaveBtn');
+  btn.disabled = true;
+  btn.textContent = 'جارٍ الحفظ...';
+
+  const all = DB.getAll();
+  const idx = all.findIndex(r => r.id === editingId);
+  if (idx !== -1) {
+    all[idx].name    = document.getElementById('editName').value.trim()  || all[idx].name;
+    all[idx].notes   = document.getElementById('editNotes').value.trim();
+    all[idx].lat     = editLat;
+    all[idx].lng     = editLng;
+    all[idx].address = editAddress;
+    if (editPhoto) all[idx].photo = editPhoto;
+    all[idx].updatedAt = new Date().toISOString();
+    localStorage.setItem('disability_parking_reports', JSON.stringify(all));
+  }
+
+  setTimeout(() => {
+    btn.disabled = false;
+    btn.textContent = '💾 حفظ التعديلات';
+    closeEdit();
+    renderAdmin();
+    renderMapMarkers();
+    updateStats();
+    showToast('✅ تم حفظ التعديلات بنجاح');
+  }, 500);
+}
+
+function closeEdit() {
+  document.getElementById('editOverlay').classList.add('hidden');
+  document.body.style.overflow = '';
+  editingId = null; editPickMap = null; editPickMarker = null;
+}
+
+function closeEditOutside(e) {
+  if (e.target === document.getElementById('editOverlay')) closeEdit();
+}
+
+
   const report = DB.updateStatus(id, status);
   if (report) {
     updateMarker(report);

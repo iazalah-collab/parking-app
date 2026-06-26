@@ -396,6 +396,27 @@ input:focus, textarea:focus { border-color: var(--green); background: var(--whit
 .help-steps { padding-right: 18px; font-size: 13px; color: var(--gray-700); line-height: 2; }
 .help-alt { font-size: 12px; color: var(--gray-400); margin-top: 8px; border-top: 1px solid #EF9F2740; padding-top: 8px; }
 
+/* ── Edit Modal ── */
+.edit-loc-info {
+  background: var(--gray-100); border-radius: var(--radius-sm);
+  padding: 10px 12px; font-size: 13px; color: var(--gray-700);
+  margin-bottom: 8px; line-height: 1.6;
+}
+.edit-map-label {
+  font-size: 12px; color: var(--gray-400); margin-bottom: 6px;
+  display: flex; align-items: center; gap: 4px;
+}
+.btn-edit {
+  flex:1; padding: 8px;
+  border-radius: var(--radius-sm);
+  font-size: 13px; font-weight: 500;
+  font-family: inherit; cursor: pointer;
+  border: 1.5px solid #93C5FD;
+  background: #EFF6FF; color: #1E40AF;
+  transition: opacity .15s;
+}
+.btn-edit:active { opacity: .75; }
+
 /* ── Responsive ── */
 @media (min-width: 640px) {
   .modal { max-width: 480px; margin: auto; border-radius: var(--radius); }
