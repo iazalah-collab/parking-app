@@ -675,7 +675,7 @@ function closeEditOutside(e) {
   if (e.target === document.getElementById('editOverlay')) closeEdit();
 }
 
-
+function changeStatus(id, status) {
   const report = DB.updateStatus(id, status);
   if (report) {
     updateMarker(report);
