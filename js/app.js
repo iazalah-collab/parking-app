@@ -49,8 +49,8 @@ function setMapType(type) {
 /* ═══════════════════════════════════════
    تصدير Excel
 ═══════════════════════════════════════ */
-function exportExcel() {
-  const reports = DB.getAll();
+async function exportExcel() {
+  const reports = await DB.getAll();
   if (reports.length === 0) { showToast('⚠️ لا توجد بيانات للتصدير'); return; }
 
   const statusMap = { approved: 'معتمد', pending: 'قيد المراجعة', rejected: 'مرفوض' };
@@ -201,13 +201,15 @@ function showImportPreview() {
   document.body.appendChild(overlay);
 }
 
-function confirmImport() {
+async function confirmImport() {
   const valid = importedRows.filter(r => r.valid);
-  valid.forEach(r => DB.save({ name: r.name, notes: r.notes, address: r.address, lat: r.lat, lng: r.lng }));
+  for (const r of valid) {
+    await DB.save({ name: r.name, notes: r.notes, address: r.address, lat: r.lat, lng: r.lng });
+  }
   closeImport();
-  renderAdmin();
-  renderMapMarkers();
-  updateStats();
+  await renderAdmin();
+  await renderMapMarkers();
+  await updateStats();
   showToast(`✅ تم استيراد ${valid.length} موقف بنجاح`);
 }
 
@@ -301,8 +303,8 @@ async function initMap() {
     gestureHandling: 'greedy',
   });
 
-  renderMapMarkers();
-  updateStats();
+  await renderMapMarkers();
+  await updateStats();
 }
 
 /* ═══════════════════════════════════════
@@ -316,7 +318,7 @@ async function renderMapMarkers() {
   markers = {};
 
   const infoWindow = new InfoWindow();
-  const reports = DB.getAll().filter(r => r.status === 'approved');
+  const reports = (await DB.getAll()).filter(r => r.status === 'approved');
 
   reports.forEach(report => {
     const pin = document.createElement('div');
@@ -747,28 +749,28 @@ function previewPhoto(e) {
 /* ═══════════════════════════════════════
    إرسال الموقع
 ═══════════════════════════════════════ */
-function submitReport() {
+async function submitReport() {
   if (!currentLat || !currentLng) { showToast('⚠️ يُرجى تحديد الموقع أولاً'); return; }
 
   const submitBtn = document.getElementById('submitBtn');
   submitBtn.disabled = true;
   submitBtn.textContent = 'جارٍ الإرسال...';
 
-  const report = DB.save({
+  const report = await DB.save({
     name:    document.getElementById('locName').value.trim() || 'موقف غير مسمى',
     notes:   document.getElementById('locNotes').value.trim(),
     lat:     currentLat, lng: currentLng,
     address: currentAddress, photo: photoData,
   });
 
-  addMarkerToMap(report);
+  if (report) addMarkerToMap(report);
 
-  setTimeout(() => {
+  setTimeout(async () => {
     submitBtn.disabled = false;
     submitBtn.textContent = 'إرسال الموقع';
     closeModal();
-    updateStats();
-    renderAdmin();
+    await updateStats();
+    await renderAdmin();
     switchTab('admin', document.querySelector('[data-tab="admin"]'));
     showToast('✅ تم استلام الموقع وسيُعرض بعد الاعتماد');
   }, 600);
@@ -777,9 +779,9 @@ function submitReport() {
 /* ═══════════════════════════════════════
    لوحة الإدارة
 ═══════════════════════════════════════ */
-function renderAdmin() {
+async function renderAdmin() {
   const filter = document.getElementById('filterSelect').value;
-  let reports = DB.getAll();
+  let reports = await DB.getAll();
   if (filter !== 'all') reports = reports.filter(r => r.status === filter);
   document.getElementById('adminCount').textContent = `${reports.length} بلاغ`;
   const list = document.getElementById('adminList');
@@ -926,35 +928,28 @@ function previewEditPhoto(e) {
   reader.readAsDataURL(file);
 }
 
-function saveEdit() {
+async function saveEdit() {
   if (!editingId) return;
-
   const btn = document.getElementById('editSaveBtn');
   btn.disabled = true;
   btn.textContent = 'جارٍ الحفظ...';
 
-  const all = DB.getAll();
-  const idx = all.findIndex(r => r.id === editingId);
-  if (idx !== -1) {
-    all[idx].name    = document.getElementById('editName').value.trim()  || all[idx].name;
-    all[idx].notes   = document.getElementById('editNotes').value.trim();
-    all[idx].lat     = editLat;
-    all[idx].lng     = editLng;
-    all[idx].address = editAddress;
-    if (editPhoto) all[idx].photo = editPhoto;
-    all[idx].updatedAt = new Date().toISOString();
-    localStorage.setItem('disability_parking_reports', JSON.stringify(all));
-  }
+  const data = {
+    name:    document.getElementById('editName').value.trim()  || 'موقف غير مسمى',
+    notes:   document.getElementById('editNotes').value.trim(),
+    lat:     editLat, lng: editLng, address: editAddress,
+  };
+  if (editPhoto) data.photo = editPhoto;
 
-  setTimeout(() => {
-    btn.disabled = false;
-    btn.textContent = '💾 حفظ التعديلات';
-    closeEdit();
-    renderAdmin();
-    renderMapMarkers();
-    updateStats();
-    showToast('✅ تم حفظ التعديلات بنجاح');
-  }, 500);
+  await DB.update(editingId, data);
+
+  btn.disabled = false;
+  btn.textContent = '💾 حفظ التعديلات';
+  closeEdit();
+  await renderAdmin();
+  await renderMapMarkers();
+  await updateStats();
+  showToast('✅ تم حفظ التعديلات بنجاح');
 }
 
 function closeEdit() {
@@ -967,27 +962,27 @@ function closeEditOutside(e) {
   if (e.target === document.getElementById('editOverlay')) closeEdit();
 }
 
-function deleteReport(id, name) {
+async function deleteReport(id, name) {
   if (!confirm(`هل أنت متأكد من حذف هذا الموقف؟\n"${name}"\n\nلا يمكن التراجع عن هذا الإجراء.`)) return;
-  DB.delete(id);
+  await DB.delete(id);
   if (markers[id]) { markers[id].setMap(null); delete markers[id]; }
-  updateStats();
-  renderAdmin();
+  await updateStats();
+  await renderAdmin();
   showToast('🗑 تم حذف الموقف بنجاح');
 }
 
-function changeStatus(id, status) {
-  const report = DB.updateStatus(id, status);
+async function changeStatus(id, status) {
+  const report = await DB.updateStatus(id, status);
   if (report) {
     updateMarker(report);
-    updateStats();
-    renderAdmin();
+    await updateStats();
+    await renderAdmin();
     showToast(status === 'approved' ? 'تم اعتماد الموقف وإضافته للخريطة ✅' : 'تم رفض البلاغ');
   }
 }
 
-function goToMap(id) {
-  const report = DB.getById(id);
+async function goToMap(id) {
+  const report = await DB.getById(id);
   if (!report || !map) return;
   switchTab('map', document.querySelector('[data-tab="map"]'));
   map.panTo({ lat: report.lat, lng: report.lng });
@@ -1010,8 +1005,8 @@ function switchTab(name, clickedEl) {
 /* ═══════════════════════════════════════
    الإحصائيات
 ═══════════════════════════════════════ */
-function updateStats() {
-  const s = DB.stats();
+async function updateStats() {
+  const s = await DB.stats();
   document.getElementById('statsLabel').textContent = `${s.approved} معتمد · ${s.pending} قيد المراجعة`;
 }
 
