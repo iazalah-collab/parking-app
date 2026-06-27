@@ -323,7 +323,12 @@ async function renderMapMarkers() {
     pin.innerHTML = buildPinHTML(report.status);
     pin.title = report.name;
 
-    const marker = new google.maps.Marker({ map: map, position: { lat: report.lat, lng: report.lng }, title: report.name });
+    const marker = new google.maps.Marker({
+      map,
+      position: { lat: report.lat, lng: report.lng },
+      title: report.name,
+      icon: buildMarkerIcon(report.status),
+    });
 
     marker.addListener('click', () => {
       infoWindow.close();
@@ -333,6 +338,19 @@ async function renderMapMarkers() {
 
     markers[report.id] = marker;
   });
+}
+
+function buildMarkerIcon(status) {
+  const color = status === 'approved' ? '#1D9E75' : '#EF9F27';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="50" viewBox="0 0 40 50">
+    <path d="M20 0C9 0 0 9 0 20c0 15 20 30 20 30S40 35 40 20C40 9 31 0 20 0z" fill="${color}" stroke="#fff" stroke-width="2"/>
+    <text x="20" y="26" text-anchor="middle" font-size="16" fill="#fff">♿</text>
+  </svg>`;
+  return {
+    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
+    scaledSize: new google.maps.Size(40, 50),
+    anchor: new google.maps.Point(20, 50),
+  };
 }
 
 function buildPinHTML(status) {
@@ -362,7 +380,12 @@ async function addMarkerToMap(report) {
   if (!map) return;
   const pin = document.createElement('div');
   pin.innerHTML = buildPinHTML(report.status);
-  const marker = new google.maps.Marker({ map: map, position: { lat: report.lat, lng: report.lng }, title: report.name });
+  const marker = new google.maps.Marker({
+    map,
+    position: { lat: report.lat, lng: report.lng },
+    title: report.name,
+    icon: buildMarkerIcon(report.status),
+  });
   markers[report.id] = marker;
   map.panTo({ lat: report.lat, lng: report.lng });
   map.setZoom(15);
@@ -374,7 +397,12 @@ async function updateMarker(report) {
   if (report.status === 'rejected') { delete markers[report.id]; return; }
   const pin = document.createElement('div');
   pin.innerHTML = buildPinHTML(report.status);
-  markers[report.id] = new google.maps.Marker({ map: map, position: { lat: report.lat, lng: report.lng }, title: report.name });
+  markers[report.id] = new google.maps.Marker({
+    map,
+    position: { lat: report.lat, lng: report.lng },
+    title: report.name,
+    icon: buildMarkerIcon(report.status),
+  });
 }
 
 /* ═══════════════════════════════════════
