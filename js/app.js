@@ -365,14 +365,41 @@ function buildInfoWindowHTML(report) {
   const statusLabel = { approved: 'معتمد ✓', pending: 'قيد المراجعة ⏳' }[report.status] || '';
   const statusColor = report.status === 'approved' ? '#0F6E56' : '#854F0B';
   const date = new Date(report.createdAt).toLocaleDateString('ar-SA', { year:'numeric', month:'long', day:'numeric' });
+  const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${report.lat},${report.lng}`;
+  const googleMapsPlace = `https://www.google.com/maps?q=${report.lat},${report.lng}`;
+  const coords = `${report.lat.toFixed(6)}, ${report.lng.toFixed(6)}`;
+
   return `
-    <div dir="rtl" style="font-family:'Tajawal',sans-serif;min-width:200px;max-width:260px;padding:4px;">
+    <div dir="rtl" style="font-family:'Tajawal',sans-serif;min-width:220px;max-width:280px;padding:4px;">
       <div style="font-size:15px;font-weight:700;margin-bottom:4px;color:#202124;">${report.name}</div>
       ${report.address ? `<div style="font-size:12px;color:#5F6368;margin-bottom:6px;">📍 ${report.address}</div>` : ''}
       ${report.notes   ? `<div style="font-size:13px;color:#3C4043;margin-bottom:8px;line-height:1.5;">${report.notes}</div>` : ''}
       ${report.photo   ? `<img src="${report.photo}" style="width:100%;border-radius:6px;margin-bottom:8px;object-fit:cover;max-height:120px;" />` : ''}
-      <div style="font-size:11px;color:${statusColor};font-weight:700;">${statusLabel}</div>
-      <div style="font-size:11px;color:#9AA0A6;margin-top:2px;">${date}</div>
+      <div style="font-size:11px;color:${statusColor};font-weight:700;margin-bottom:8px;">${statusLabel}</div>
+      
+      <!-- أزرار التنقل -->
+      <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px;">
+        
+        <!-- فتح Google Maps للملاحة -->
+        <a href="${googleMapsUrl}" target="_blank"
+           style="display:flex;align-items:center;justify-content:center;gap:6px;
+                  background:#1D9E75;color:#fff;text-decoration:none;
+                  padding:9px 12px;border-radius:8px;font-size:13px;font-weight:600;
+                  font-family:'Tajawal',sans-serif;">
+          🧭 ابدأ الملاحة في Google Maps
+        </a>
+        
+        <!-- نسخ الإحداثيات -->
+        <button onclick="copyCoords('${coords}')"
+           style="display:flex;align-items:center;justify-content:center;gap:6px;
+                  background:#F1F3F4;color:#3C4043;border:none;cursor:pointer;
+                  padding:8px 12px;border-radius:8px;font-size:12px;font-weight:500;
+                  font-family:'Tajawal',sans-serif;width:100%;">
+          📋 نسخ الإحداثيات
+        </button>
+
+      </div>
+      <div style="font-size:10px;color:#9AA0A6;margin-top:6px;text-align:center;">${date}</div>
     </div>`;
 }
 
@@ -1012,6 +1039,24 @@ async function shareApp() {
     document.body.removeChild(input);
     showToast('✅ تم نسخ رابط الموقع — شاركه مع من تريد!');
   }
+}
+
+/* ═══════════════════════════════════════
+   نسخ إحداثيات الموقف
+═══════════════════════════════════════ */
+function copyCoords(coords) {
+  navigator.clipboard.writeText(coords).then(() => {
+    showToast('✅ تم نسخ الإحداثيات — الصقها في Google Maps');
+  }).catch(() => {
+    // fallback قديم
+    const input = document.createElement('input');
+    input.value = coords;
+    document.body.appendChild(input);
+    input.select();
+    document.execCommand('copy');
+    document.body.removeChild(input);
+    showToast('✅ تم نسخ الإحداثيات — الصقها في Google Maps');
+  });
 }
 
 /* ═══════════════════════════════════════
