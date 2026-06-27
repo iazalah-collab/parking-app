@@ -26,6 +26,16 @@ let pickMap = null;
 let pickMarker = null;
 
 /* ═══════════════════════════════════════
+   تغيير نمط الخريطة
+═══════════════════════════════════════ */
+function setMapType(type) {
+  if (!map) return;
+  map.setMapTypeId(type);
+  document.querySelectorAll('.map-type-btn').forEach(btn => btn.classList.remove('active'));
+  document.getElementById('btn-' + type).classList.add('active');
+}
+
+/* ═══════════════════════════════════════
    تصدير Excel
 ═══════════════════════════════════════ */
 function exportExcel() {
@@ -297,7 +307,7 @@ async function renderMapMarkers() {
   markers = {};
 
   const infoWindow = new InfoWindow();
-  const reports = DB.getAll().filter(r => r.status !== 'rejected');
+  const reports = DB.getAll().filter(r => r.status === 'approved');
 
   reports.forEach(report => {
     const pin = document.createElement('div');

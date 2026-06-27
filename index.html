@@ -52,6 +52,13 @@
       <div class="legend-item"><span class="dot green"></span> معتمد</div>
       <div class="legend-item"><span class="dot amber"></span> قيد المراجعة</div>
     </div>
+    <!-- أزرار نمط الخريطة -->
+    <div class="map-type-btns">
+      <button class="map-type-btn active" onclick="setMapType('roadmap')"   id="btn-roadmap">🗺 عادي</button>
+      <button class="map-type-btn"        onclick="setMapType('satellite')" id="btn-satellite">🛰 قمر صناعي</button>
+      <button class="map-type-btn"        onclick="setMapType('hybrid')"    id="btn-hybrid">🌍 هجين</button>
+      <button class="map-type-btn"        onclick="setMapType('terrain')"   id="btn-terrain">⛰ تضاريس</button>
+    </div>
   </div>
 
   <!-- Admin View -->
