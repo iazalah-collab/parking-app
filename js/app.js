@@ -275,7 +275,7 @@ async function initMap() {
 
   const defaultCenter = { lat: 24.7136, lng: 46.6753 };
   const { Map } = await google.maps.importLibrary('maps');
-  await google.maps.importLibrary('marker');
+  // markers ready
 
   // حاول تحديد موقع المستخدم أولاً
   let center = defaultCenter;
@@ -292,7 +292,6 @@ async function initMap() {
   map = new Map(document.getElementById('map'), {
     center,
     zoom: 13,
-    mapId: '873fc0091c4685d7773aa70e',
     disableDefaultUI: false,
     zoomControl: true,
     mapTypeControl: false,
@@ -311,10 +310,9 @@ async function initMap() {
 ═══════════════════════════════════════ */
 async function renderMapMarkers() {
   if (!map) return;
-  const { AdvancedMarkerElement } = await google.maps.importLibrary('marker');
   const { InfoWindow } = await google.maps.importLibrary('maps');
 
-  Object.values(markers).forEach(m => m.map = null);
+  Object.values(markers).forEach(m => m.setMap(null));
   markers = {};
 
   const infoWindow = new InfoWindow();
@@ -325,12 +323,7 @@ async function renderMapMarkers() {
     pin.innerHTML = buildPinHTML(report.status);
     pin.title = report.name;
 
-    const marker = new AdvancedMarkerElement({
-      map,
-      position: { lat: report.lat, lng: report.lng },
-      content: pin,
-      title: report.name,
-    });
+    const marker = new google.maps.Marker({ map: map, position: { lat: report.lat, lng: report.lng }, title: report.name });
 
     marker.addListener('click', () => {
       infoWindow.close();
@@ -367,10 +360,9 @@ function buildInfoWindowHTML(report) {
 
 async function addMarkerToMap(report) {
   if (!map) return;
-  const { AdvancedMarkerElement } = await google.maps.importLibrary('marker');
   const pin = document.createElement('div');
   pin.innerHTML = buildPinHTML(report.status);
-  const marker = new AdvancedMarkerElement({ map, position: { lat: report.lat, lng: report.lng }, content: pin, title: report.name });
+  const marker = new google.maps.Marker({ map: map, position: { lat: report.lat, lng: report.lng }, title: report.name });
   markers[report.id] = marker;
   map.panTo({ lat: report.lat, lng: report.lng });
   map.setZoom(15);
@@ -378,12 +370,11 @@ async function addMarkerToMap(report) {
 
 async function updateMarker(report) {
   if (!map) return;
-  if (markers[report.id]) markers[report.id].map = null;
+  if (markers[report.id]) markers[report.id].setMap(null);
   if (report.status === 'rejected') { delete markers[report.id]; return; }
-  const { AdvancedMarkerElement } = await google.maps.importLibrary('marker');
   const pin = document.createElement('div');
   pin.innerHTML = buildPinHTML(report.status);
-  markers[report.id] = new AdvancedMarkerElement({ map, position: { lat: report.lat, lng: report.lng }, content: pin, title: report.name });
+  markers[report.id] = new google.maps.Marker({ map: map, position: { lat: report.lat, lng: report.lng }, title: report.name });
 }
 
 /* ═══════════════════════════════════════
@@ -408,7 +399,6 @@ async function renderPickMap() {
   if (pickMap) return;
   const container = document.getElementById('locPickMap');
   const { Map } = await google.maps.importLibrary('maps');
-  const { AdvancedMarkerElement } = await google.maps.importLibrary('marker');
 
   let center = { lat: 24.7136, lng: 46.6753 };
   try {
@@ -432,10 +422,10 @@ async function renderPickMap() {
     const lng = e.latLng.lng();
     currentLat = lat; currentLng = lng;
 
-    if (pickMarker) pickMarker.map = null;
+    if (pickMarker) pickMarker.setMap(null);
     const pin = document.createElement('div');
     pin.innerHTML = buildPinHTML('pending');
-    pickMarker = new AdvancedMarkerElement({ map: pickMap, position: { lat, lng }, content: pin });
+    pickMarker = new google.maps.Marker({ map: pickMap, position: { lat, lng }, title: '' });
 
     const coordsEl = document.getElementById('pickCoords');
     coordsEl.classList.remove('hidden');
@@ -569,11 +559,10 @@ async function renderMiniMapLink(lat, lng) {
   const container = document.getElementById('locMiniMapLink');
   container.classList.remove('hidden');
   const { Map } = await google.maps.importLibrary('maps');
-  const { AdvancedMarkerElement } = await google.maps.importLibrary('marker');
   const m = new Map(container, { center: { lat, lng }, zoom: 16, disableDefaultUI: true, gestureHandling: 'none' });
   const pin = document.createElement('div');
   pin.innerHTML = buildPinHTML('pending');
-  new AdvancedMarkerElement({ map: m, position: { lat, lng }, content: pin });
+  new google.maps.Marker({ map: m, position: { lat, lng }, title: '' });
 }
 
 /* ═══════════════════════════════════════
@@ -676,14 +665,13 @@ async function renderMiniMap() {
   container.classList.remove('hidden');
   if (!miniMap) {
     const { Map } = await google.maps.importLibrary('maps');
-    const { AdvancedMarkerElement } = await google.maps.importLibrary('marker');
     miniMap = new Map(container, { center: { lat: currentLat, lng: currentLng }, zoom: 16, disableDefaultUI: true, gestureHandling: 'none' });
     const pin = document.createElement('div');
     pin.innerHTML = buildPinHTML('pending');
-    miniMarker = new AdvancedMarkerElement({ map: miniMap, position: { lat: currentLat, lng: currentLng }, content: pin });
+    miniMarker = new google.maps.Marker({ map: miniMap, position: { lat: currentLat, lng: currentLng }, title: '' });
   } else {
     miniMap.setCenter({ lat: currentLat, lng: currentLng });
-    if (miniMarker) miniMarker.position = { lat: currentLat, lng: currentLng };
+    if (miniMarker) miniMarker.setPosition({ lat: currentLat, lng: currentLng });
   }
 }
 
@@ -829,7 +817,6 @@ function openEdit(id) {
 async function initEditMap(lat, lng) {
   const container = document.getElementById('editPickMap');
   const { Map } = await google.maps.importLibrary('maps');
-  const { AdvancedMarkerElement } = await google.maps.importLibrary('marker');
 
   editPickMap = new Map(container, {
     center: { lat, lng }, zoom: 16,
@@ -842,9 +829,7 @@ async function initEditMap(lat, lng) {
   // ماركر للموقع الحالي
   const pinCurrent = document.createElement('div');
   pinCurrent.innerHTML = buildPinHTML('approved');
-  editPickMarker = new AdvancedMarkerElement({
-    map: editPickMap, position: { lat, lng }, content: pinCurrent,
-  });
+  editPickMarker = new google.maps.Marker({ map: editPickMap, position: { lat, lng }, title: '' });
 
   // عند الضغط لتغيير الموقع
   editPickMap.addListener('click', async (e) => {
@@ -852,12 +837,10 @@ async function initEditMap(lat, lng) {
     const newLng = e.latLng.lng();
     editLat = newLat; editLng = newLng;
 
-    editPickMarker.map = null;
+    editPickMarker.setMap(null);
     const pin = document.createElement('div');
     pin.innerHTML = buildPinHTML('pending');
-    editPickMarker = new AdvancedMarkerElement({
-      map: editPickMap, position: { lat: newLat, lng: newLng }, content: pin,
-    });
+    editPickMarker = new google.maps.Marker({ map: editPickMap, position: { lat: newLat, lng: newLng }, title: '' });
 
     const coordsEl = document.getElementById('editPickCoords');
     coordsEl.classList.remove('hidden');
@@ -932,7 +915,7 @@ function closeEditOutside(e) {
 function deleteReport(id, name) {
   if (!confirm(`هل أنت متأكد من حذف هذا الموقف؟\n"${name}"\n\nلا يمكن التراجع عن هذا الإجراء.`)) return;
   DB.delete(id);
-  if (markers[id]) { markers[id].map = null; delete markers[id]; }
+  if (markers[id]) { markers[id].setMap(null); delete markers[id]; }
   updateStats();
   renderAdmin();
   showToast('🗑 تم حذف الموقف بنجاح');
