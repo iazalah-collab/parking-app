@@ -30,7 +30,18 @@ let pickMarker = null;
 ═══════════════════════════════════════ */
 function setMapType(type) {
   if (!map) return;
-  map.setMapTypeId(type);
+
+  // roadmap يعمل مع mapId — بقية الأنماط تحتاج إزالته
+  if (type === 'roadmap') {
+    map.setMapTypeId(google.maps.MapTypeId.ROADMAP);
+  } else if (type === 'satellite') {
+    map.setMapTypeId(google.maps.MapTypeId.SATELLITE);
+  } else if (type === 'hybrid') {
+    map.setMapTypeId(google.maps.MapTypeId.HYBRID);
+  } else if (type === 'terrain') {
+    map.setMapTypeId(google.maps.MapTypeId.TERRAIN);
+  }
+
   document.querySelectorAll('.map-type-btn').forEach(btn => btn.classList.remove('active'));
   document.getElementById('btn-' + type).classList.add('active');
 }
@@ -281,7 +292,6 @@ async function initMap() {
   map = new Map(document.getElementById('map'), {
     center,
     zoom: 13,
-    mapId: 'DEMO_MAP_ID',
     disableDefaultUI: false,
     zoomControl: true,
     mapTypeControl: false,
@@ -410,7 +420,7 @@ async function renderPickMap() {
   } catch(e) {}
 
   pickMap = new Map(container, {
-    center, zoom: 14, mapId: 'DEMO_MAP_ID',
+    center, zoom: 14,
     disableDefaultUI: false, zoomControl: true,
     mapTypeControl: false, streetViewControl: false,
     fullscreenControl: false, gestureHandling: 'greedy',
@@ -559,7 +569,7 @@ async function renderMiniMapLink(lat, lng) {
   container.classList.remove('hidden');
   const { Map } = await google.maps.importLibrary('maps');
   const { AdvancedMarkerElement } = await google.maps.importLibrary('marker');
-  const m = new Map(container, { center: { lat, lng }, zoom: 16, mapId: 'DEMO_MAP_ID', disableDefaultUI: true, gestureHandling: 'none' });
+  const m = new Map(container, { center: { lat, lng }, zoom: 16, disableDefaultUI: true, gestureHandling: 'none' });
   const pin = document.createElement('div');
   pin.innerHTML = buildPinHTML('pending');
   new AdvancedMarkerElement({ map: m, position: { lat, lng }, content: pin });
@@ -666,7 +676,7 @@ async function renderMiniMap() {
   if (!miniMap) {
     const { Map } = await google.maps.importLibrary('maps');
     const { AdvancedMarkerElement } = await google.maps.importLibrary('marker');
-    miniMap = new Map(container, { center: { lat: currentLat, lng: currentLng }, zoom: 16, mapId: 'DEMO_MAP_ID', disableDefaultUI: true, gestureHandling: 'none' });
+    miniMap = new Map(container, { center: { lat: currentLat, lng: currentLng }, zoom: 16, disableDefaultUI: true, gestureHandling: 'none' });
     const pin = document.createElement('div');
     pin.innerHTML = buildPinHTML('pending');
     miniMarker = new AdvancedMarkerElement({ map: miniMap, position: { lat: currentLat, lng: currentLng }, content: pin });
@@ -822,7 +832,7 @@ async function initEditMap(lat, lng) {
 
   editPickMap = new Map(container, {
     center: { lat, lng }, zoom: 16,
-    mapId: 'DEMO_MAP_ID',
+    
     disableDefaultUI: false, zoomControl: true,
     mapTypeControl: false, streetViewControl: false,
     fullscreenControl: false, gestureHandling: 'greedy',
